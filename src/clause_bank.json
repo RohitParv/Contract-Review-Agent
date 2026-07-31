@@ -1,0 +1,74 @@
+[
+  {
+    "id": "auto-renewal",
+    "category": "Auto-renewal",
+    "description": "Contract automatically renews unless the tenant/party actively cancels within a narrow window.",
+    "why_it_matters": "Can lock you into another full term if you miss a short opt-out window, sometimes with no reminder from the other party."
+  },
+  {
+    "id": "unilateral-rent-increase",
+    "category": "Unilateral rent/fee increase",
+    "description": "Landlord/company can raise rent or fees during the term, or on renewal, with minimal notice.",
+    "why_it_matters": "Removes cost predictability; check the notice period and any caps."
+  },
+  {
+    "id": "excessive-late-fees",
+    "category": "Excessive late fees",
+    "description": "Late payment fees that are flat-rate large amounts or compound daily without a cap.",
+    "why_it_matters": "Can turn a small missed payment into a large one quickly."
+  },
+  {
+    "id": "waiver-of-rights",
+    "category": "Waiver of rights",
+    "description": "Clause where the signer waives a legal right, e.g. right to a jury trial, right to sue, or class-action participation.",
+    "why_it_matters": "Limits your legal options if a dispute happens later; often not obvious on a first read."
+  },
+  {
+    "id": "one-sided-indemnification",
+    "category": "One-sided indemnification",
+    "description": "Signer agrees to cover the other party's legal costs/damages, but not vice versa.",
+    "why_it_matters": "Puts financial risk asymmetrically on you."
+  },
+  {
+    "id": "mandatory-arbitration",
+    "category": "Mandatory arbitration / no jury trial",
+    "description": "Disputes must go to private arbitration instead of court.",
+    "why_it_matters": "Arbitration can favor the party that uses the arbitrator repeatedly (usually the company/landlord) and limits appeal options."
+  },
+  {
+    "id": "early-termination-penalty",
+    "category": "Early termination penalty",
+    "description": "Large flat fee or 'remaining balance of the term' owed if you need to exit early.",
+    "why_it_matters": "Can be disproportionate to actual damages the other party incurs; worth negotiating a cap."
+  },
+  {
+    "id": "deposit-non-return-terms",
+    "category": "Security deposit non-return terms",
+    "description": "Vague or broad conditions under which a deposit can be withheld, or no stated return timeline.",
+    "why_it_matters": "Ambiguous 'normal wear and tear' language is a common source of deposit disputes."
+  },
+  {
+    "id": "subletting-restriction",
+    "category": "Subletting/assignment restriction",
+    "description": "Blanket prohibition on subletting or assigning the agreement, sometimes even in emergencies.",
+    "why_it_matters": "Limits flexibility if your situation changes (job relocation, needing a roommate, etc.)."
+  },
+  {
+    "id": "maintenance-shifted-to-tenant",
+    "category": "Maintenance responsibility shifted",
+    "description": "Tenant/signer made responsible for repairs that are normally the landlord's/owner's duty (structural, major systems).",
+    "why_it_matters": "Can create unexpected large costs; check local landlord-tenant law for what's typically non-shiftable."
+  },
+  {
+    "id": "vague-default-terms",
+    "category": "Vague default/breach terms",
+    "description": "What counts as a 'default' or 'breach' is defined broadly or left to one party's sole discretion.",
+    "why_it_matters": "Gives the other party wide latitude to declare a breach and trigger penalties."
+  },
+  {
+    "id": "unilateral-modification",
+    "category": "Unilateral modification rights",
+    "description": "One party can change the terms of the agreement during the term without the other party's consent.",
+    "why_it_matters": "Undermines the certainty of what you originally agreed to."
+  }
+]

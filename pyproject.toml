@@ -1,0 +1,9 @@
+[project]
+name = "contract-review-agent"
+version = "0.1.0"
+description = "Personal contract/lease review AI agent — router/orchestrator/subagent architecture adapted from fp-domain-agent."
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
