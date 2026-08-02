@@ -80,14 +80,18 @@ Or start with just a question, no document:
 python local/run_local.py --message "What can you help me with?"
 ```
 
-**Option B — HTTP server:**
+**Option B — HTTP server + web UI:**
 
 ```bash
 python main.py
 # or: uvicorn main:app --reload
 ```
 
-Then:
+Then open **http://127.0.0.1:8000** in a browser for a small chat UI —
+upload a `.pdf`/`.txt` contract (or click "Try the sample lease"), then ask
+questions or click "Review this contract" for the full risk report.
+
+Or drive the API directly:
 
 ```bash
 curl -X POST http://127.0.0.1:8000/chat \
@@ -97,11 +101,13 @@ curl -X POST http://127.0.0.1:8000/chat \
 
 Reuse the returned `session_id` on your next request to continue the same
 conversation (ask follow-up questions, the contract stays loaded for that
-session).
+session). To load a contract from a browser upload instead of a server-side
+path, `POST /upload` as `multipart/form-data` with a `file` field (and
+optional `session_id` to attach it to an existing conversation).
 
 ## Testing
 
-33 tests, all offline (mocked/scripted LLM responses — no API key or network
+39 tests, all offline (mocked/scripted LLM responses — no API key or network
 needed to run them):
 
 ```bash
@@ -128,7 +134,8 @@ The rest of the app never changes — everything goes through
 contract-review-agent/
 ├── main.py                    # uvicorn entry point
 ├── src/
-│   ├── app.py                 # FastAPI app (POST /chat, GET /health)
+│   ├── app.py                 # FastAPI app (POST /chat, /upload, /load-sample, GET /, /health)
+│   ├── static/index.html       # self-contained web chat UI served at GET /
 │   ├── orchestrator.py        # route dispatcher
 │   ├── router.py               # intent classifier
 │   ├── clause_bank.json        # known risky clause patterns
@@ -147,7 +154,7 @@ contract-review-agent/
 │   └── prompts/                # *.md system prompts
 ├── samples/sample_lease.txt    # synthetic test lease (packed with flaggable clauses)
 ├── local/run_local.py          # CLI smoke test / chat loop
-└── tests/                      # 33 pytest tests (mocked LLM)
+└── tests/                      # 39 pytest tests (mocked LLM)
 ```
 
 ## Next Steps (Ideas, Not Done Yet)
@@ -161,7 +168,5 @@ contract-review-agent/
   decide when to extract/re-extract/re-flag mid-conversation instead of a
   fixed pipeline, port in LangGraph the way the original project used it for
   its multi-tool ReAct agent.
-- **Web upload UI**: right now contracts load by local file path; a small
-  frontend with file upload would make this actually shareable.
 - **Expand the clause bank**: 12 patterns is a starting set — freelance
   contracts, NDAs, and ToS documents would each want their own bank entries.

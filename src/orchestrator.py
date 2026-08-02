@@ -47,6 +47,12 @@ class Orchestrator:
         self._store = store or build_conversation_store()
         self._llm = llm or llm_client_factory()
 
+    def load_contract(self, session_id: str, text: str) -> None:
+        """Store contract text on a session ahead of the next chat turn (used
+        by the /upload route, where the file comes from the browser instead
+        of a server-side path)."""
+        self._store.set_contract(session_id, text)
+
     def run(
         self,
         query: str,

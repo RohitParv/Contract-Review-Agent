@@ -6,15 +6,23 @@ no A2A protocol, just {message, session_id} in and out.
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 load_dotenv()
 
 from orchestrator import Orchestrator  # noqa: E402  (after load_dotenv)
-from tools.contract_extract import load_contract_text  # noqa: E402
+from tools.contract_extract import (  # noqa: E402
+    extract_text_from_bytes,
+    load_contract_text,
+)
+
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+SAMPLE_LEASE_PATH = Path(__file__).resolve().parent.parent / "samples" / "sample_lease.txt"
 
 app = FastAPI(title="Contract & Lease Review Assistant")
 _orchestrator = Orchestrator()
@@ -31,9 +39,24 @@ class ChatResponse(BaseModel):
     session_id: str
 
 
+class LoadContractResponse(BaseModel):
+    session_id: str
+    filename: str
+    message: str
+
+
+class LoadSampleRequest(BaseModel):
+    session_id: str | None = None
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/")
+def index() -> FileResponse:
+    return FileResponse(STATIC_DIR / "index.html")
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -50,3 +73,39 @@ def chat(req: ChatRequest) -> ChatResponse:
         contract_path_text=contract_text,
     )
     return ChatResponse(message=reply, session_id=session_id)
+
+
+@app.post("/upload", response_model=LoadContractResponse)
+async def upload(
+    file: UploadFile = File(...),
+    session_id: str | None = Form(None),
+) -> LoadContractResponse:
+    if not file.filename or not file.filename.lower().endswith((".pdf", ".txt")):
+        raise HTTPException(status_code=400, detail="Only .pdf or .txt files are supported.")
+
+    data = await file.read()
+    text = extract_text_from_bytes(file.filename, data)
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="Couldn't extract any text from that file.")
+
+    session_id = session_id or str(uuid.uuid4())
+    _orchestrator.load_contract(session_id, text)
+    return LoadContractResponse(
+        session_id=session_id,
+        filename=file.filename,
+        message=f"Loaded {file.filename} ({len(text):,} characters). Ask a question or say "
+        '"review this contract" for a full risk report.',
+    )
+
+
+@app.post("/load-sample", response_model=LoadContractResponse)
+def load_sample(req: LoadSampleRequest) -> LoadContractResponse:
+    text = load_contract_text(str(SAMPLE_LEASE_PATH))
+    session_id = req.session_id or str(uuid.uuid4())
+    _orchestrator.load_contract(session_id, text)
+    return LoadContractResponse(
+        session_id=session_id,
+        filename="sample_lease.txt",
+        message='Loaded the sample lease. Ask a question or say "review this contract" '
+        "for a full risk report.",
+    )

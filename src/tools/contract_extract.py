@@ -20,6 +20,20 @@ def load_contract_text(path: str) -> str:
     return file_path.read_text(encoding="utf-8", errors="replace")
 
 
+def extract_text_from_bytes(filename: str, data: bytes) -> str:
+    """Same extraction as `load_contract_text`, for bytes already in memory
+    (e.g. a browser file upload) instead of a path on the server's disk."""
+    if filename.lower().endswith(".pdf"):
+        import fitz  # PyMuPDF
+
+        text_parts: list[str] = []
+        with fitz.open(stream=data, filetype="pdf") as doc:
+            for page in doc:
+                text_parts.append(page.get_text())
+        return "\n".join(text_parts).strip()
+    return data.decode("utf-8", errors="replace")
+
+
 def _extract_pdf_text(file_path: Path) -> str:
     import fitz  # PyMuPDF
 
