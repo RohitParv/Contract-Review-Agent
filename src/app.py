@@ -10,16 +10,22 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
 load_dotenv()
 
 from orchestrator import Orchestrator  # noqa: E402  (after load_dotenv)
+from shared.schemas.contract_profile import (  # noqa: E402
+    ContractProfile,
+    FinancialSimulation,
+    RiskReview,
+)
 from tools.contract_extract import (  # noqa: E402
     extract_text_from_bytes,
     load_contract_text,
 )
+from tools.report_pdf import generate_report_pdf  # noqa: E402
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 SAMPLE_LEASE_PATH = Path(__file__).resolve().parent.parent / "samples" / "sample_lease.txt"
@@ -37,6 +43,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     message: str
     session_id: str
+    review: dict | None = None
 
 
 class LoadContractResponse(BaseModel):
@@ -72,7 +79,8 @@ def chat(req: ChatRequest) -> ChatResponse:
         session_id=session_id,
         contract_path_text=contract_text,
     )
-    return ChatResponse(message=reply, session_id=session_id)
+    review = _orchestrator.get_review_snapshot(session_id)
+    return ChatResponse(message=reply, session_id=session_id, review=review)
 
 
 @app.post("/upload", response_model=LoadContractResponse)
@@ -108,4 +116,26 @@ def load_sample(req: LoadSampleRequest) -> LoadContractResponse:
         filename="sample_lease.txt",
         message='Loaded the sample lease. Ask a question or say "review this contract" '
         "for a full risk report.",
+    )
+
+
+@app.get("/report/pdf")
+def report_pdf(session_id: str) -> Response:
+    snapshot = _orchestrator.get_review_snapshot(session_id)
+    if snapshot is None:
+        raise HTTPException(
+            status_code=404,
+            detail="No review found for this session yet — run a review first.",
+        )
+
+    profile = ContractProfile.model_validate(snapshot["profile"])
+    risk_review = RiskReview.model_validate(snapshot["risk_review"] or {})
+    financial_sim = FinancialSimulation.model_validate(snapshot["financial_sim"] or {})
+    narrative_md = snapshot["narrative_md"] or ""
+
+    pdf_bytes = generate_report_pdf(profile, risk_review, financial_sim, narrative_md)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=risk_report.pdf"},
     )

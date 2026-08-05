@@ -22,6 +22,8 @@ class _SessionState:
     contract_text: str | None = None
     contract_profile: dict | None = None
     risk_review: dict | None = None
+    financial_sim: dict | None = None
+    report_markdown: str | None = None
 
 
 class InMemoryConversationStore:
@@ -56,6 +58,18 @@ class InMemoryConversationStore:
 
     def get_risk_review(self, session_id: str) -> dict | None:
         return self._get_or_create(session_id).risk_review
+
+    def set_financial_sim(self, session_id: str, sim: dict) -> None:
+        self._get_or_create(session_id).financial_sim = sim
+
+    def get_financial_sim(self, session_id: str) -> dict | None:
+        return self._get_or_create(session_id).financial_sim
+
+    def set_report_markdown(self, session_id: str, report: str) -> None:
+        self._get_or_create(session_id).report_markdown = report
+
+    def get_report_markdown(self, session_id: str) -> str | None:
+        return self._get_or_create(session_id).report_markdown
 
 
 _store_singleton: InMemoryConversationStore | None = None

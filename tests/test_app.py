@@ -1,8 +1,11 @@
 """FastAPI wiring test — uses LLM_PROVIDER=mock (set in conftest.py) so this
 never needs a real API key."""
 
+import json
+
 from fastapi.testclient import TestClient
 
+import app as app_module
 from app import app
 
 client = TestClient(app)
@@ -93,3 +96,42 @@ def test_upload_then_qa_reuses_session():
     )
     assert reply.status_code == 200
     assert reply.json()["session_id"] == uploaded["session_id"]
+
+
+def test_chat_review_field_is_null_before_any_review():
+    response = client.post("/chat", json={"message": "hi"})
+    assert response.json()["review"] is None
+
+
+def test_report_pdf_404_without_review():
+    response = client.get("/report/pdf", params={"session_id": "no-such-session"})
+    assert response.status_code == 404
+
+
+def test_report_pdf_after_review(monkeypatch, scripted_llm_factory, sample_profile_dict, sample_risk_review_dict):
+    llm = scripted_llm_factory(
+        [
+            json.dumps(sample_profile_dict),
+            json.dumps(sample_risk_review_dict),
+            "## Overview\nTest overview.\n\n## Questions Worth Asking Before You Sign\n1. Test?\n",
+        ]
+    )
+    monkeypatch.setattr(app_module._orchestrator, "_llm", llm)
+
+    uploaded = client.post(
+        "/upload",
+        files={"file": ("lease.txt", b"Sample lease text for review.", "text/plain")},
+    ).json()
+    reply = client.post(
+        "/chat",
+        json={"message": "please review this contract", "session_id": uploaded["session_id"]},
+    )
+    assert reply.status_code == 200
+    body = reply.json()
+    assert body["review"] is not None
+    assert body["review"]["financial_sim"] is not None
+
+    pdf_response = client.get("/report/pdf", params={"session_id": uploaded["session_id"]})
+    assert pdf_response.status_code == 200
+    assert pdf_response.headers["content-type"] == "application/pdf"
+    assert pdf_response.content[:4] == b"%PDF"

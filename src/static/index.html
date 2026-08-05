@@ -306,6 +306,76 @@
   }
 
   footer.foot { text-align: center; padding: 32px 20px 48px; color: var(--muted); font-size: 12.5px; }
+
+  /* ---------- Risk report panel ---------- */
+  :root {
+    --sev-high: #dc2626;
+    --sev-medium: #d97706;
+    --sev-low: #16a34a;
+  }
+  .msg.review-panel { max-width: 92%; align-self: flex-start; }
+  .report-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px 20px;
+    box-shadow: var(--shadow);
+  }
+  .report-section { margin-bottom: 18px; }
+  .report-section:last-child { margin-bottom: 0; }
+  .report-section h4 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--accent); margin: 0 0 10px; font-weight: 700;
+  }
+  .report-section .md-body div { font-size: 13.5px; line-height: 1.6; margin: 0 0 4px; }
+  .report-section .md-body ul { margin: 4px 0; padding-left: 1.2em; font-size: 13.5px; line-height: 1.6; }
+
+  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  @media (max-width: 560px) { .stat-grid { grid-template-columns: 1fr; } }
+  .stat-tile {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px 10px; text-align: center;
+  }
+  .stat-value { font-size: 17px; font-weight: 700; color: var(--accent2); }
+  .stat-label { font-size: 10.5px; color: var(--muted); margin-top: 3px; text-transform: uppercase; letter-spacing: .03em; }
+  .report-notes { font-size: 11.5px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+
+  .flag-card {
+    border-left: 3px solid var(--border);
+    background: var(--bg);
+    border-radius: 0 10px 10px 0;
+    padding: 10px 14px;
+    margin-bottom: 10px;
+  }
+  .flag-card:last-child { margin-bottom: 0; }
+  .flag-card.sev-high { border-left-color: var(--sev-high); }
+  .flag-card.sev-medium { border-left-color: var(--sev-medium); }
+  .flag-card.sev-low { border-left-color: var(--sev-low); }
+  .flag-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+  .flag-sev {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
+    padding: 2px 8px; border-radius: 999px; color: #fff;
+  }
+  .flag-sev.sev-high { background: var(--sev-high); }
+  .flag-sev.sev-medium { background: var(--sev-medium); }
+  .flag-sev.sev-low { background: var(--sev-low); }
+  .flag-cat { font-size: 13px; font-weight: 600; }
+  .flag-confidence { font-size: 11px; color: var(--muted); margin-left: auto; }
+  .flag-quote {
+    margin: 0 0 6px; padding: 6px 10px; font-size: 13px; font-style: italic;
+    color: var(--muted); background: var(--panel); border-radius: 8px;
+    border-left: 2px solid var(--border);
+  }
+  .flag-explanation { font-size: 13px; line-height: 1.55; margin: 0 0 6px; }
+  .flag-suggestion {
+    font-size: 12px; line-height: 1.5; color: var(--muted);
+    background: rgba(79, 91, 213, 0.07); border-radius: 8px; padding: 6px 10px;
+  }
+  .flag-suggestion strong { color: var(--text); }
+  .muted-text { color: var(--muted); font-size: 13px; margin: 0; }
+
+  #reportSection { display: none; }
+  #downloadPdfBtn { width: 100%; }
 </style>
 </head>
 <body>
@@ -391,6 +461,11 @@
         <div class="session-id" id="sessionIdLabel">(none yet — starts on first message)</div>
         <button id="resetBtn" style="margin-top:8px;">Start new session</button>
       </div>
+
+      <div id="reportSection">
+        <h2>Risk Report</h2>
+        <button id="downloadPdfBtn" class="primary">Download PDF Report</button>
+      </div>
     </aside>
 
     <main class="chat">
@@ -425,13 +500,17 @@
   const navTryBtn = document.getElementById('navTryBtn');
   const heroSampleBtn = document.getElementById('heroSampleBtn');
   const heroUploadBtn = document.getElementById('heroUploadBtn');
+  const reportSection = document.getElementById('reportSection');
+  const downloadPdfBtn = document.getElementById('downloadPdfBtn');
 
   let sessionId = localStorage.getItem('cra_session_id') || null;
   let loadedFilename = localStorage.getItem('cra_loaded_filename') || null;
+  let hasReview = localStorage.getItem('cra_has_review') === '1';
   let typingBubble = null;
 
   renderSessionId();
   renderLoadedDoc();
+  renderReportSectionVisibility();
 
   function renderSessionId() {
     sessionIdLabel.textContent = sessionId ? sessionId : '(none yet — starts on first message)';
@@ -459,6 +538,17 @@
     renderLoadedDoc();
   }
 
+  function renderReportSectionVisibility() {
+    reportSection.style.display = hasReview ? 'block' : 'none';
+  }
+
+  function markHasReview() {
+    if (hasReview) return;
+    hasReview = true;
+    localStorage.setItem('cra_has_review', '1');
+    renderReportSectionVisibility();
+  }
+
   function escapeHtml(str) {
     const div = document.createElement('div');
     div.textContent = str;
@@ -474,7 +564,9 @@
     for (const line of lines) {
       const heading = line.match(/^(#{1,3})\s+(.*)/);
       const bullet = line.match(/^[-*]\s+(.*)/);
-      if (heading) {
+      if (/^-{3,}$/.test(line.trim())) {
+        if (inList) { html += '</ul>'; inList = false; }
+      } else if (heading) {
         if (inList) { html += '</ul>'; inList = false; }
         const level = heading[1].length;
         html += `<h${level}>${inlineMd(heading[2])}</h${level}>`;
@@ -494,6 +586,186 @@
 
   function inlineMd(str) {
     return str.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  }
+
+  // Splits the narrative report into named sections by ## headers, mirroring
+  // the PDF generator's _split_sections so the web panel and PDF agree on
+  // what's prose (Overview/Questions) vs. structured (risk flags).
+  function splitSections(markdown) {
+    const sections = {};
+    let current = '_preamble';
+    let buf = [];
+    (markdown || '').split('\n').forEach((line) => {
+      const heading = line.match(/^#{1,3}\s+(.*)/);
+      if (heading) {
+        sections[current] = buf.join('\n').trim();
+        current = heading[1].trim();
+        buf = [];
+      } else {
+        buf.push(line);
+      }
+    });
+    sections[current] = buf.join('\n').trim();
+    return sections;
+  }
+
+  function formatMoney(value) {
+    if (value === null || value === undefined) return '—';
+    return '$' + Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function statTile(label, value) {
+    const el = document.createElement('div');
+    el.className = 'stat-tile';
+    const valueEl = document.createElement('div');
+    valueEl.className = 'stat-value';
+    valueEl.textContent = value;
+    const labelEl = document.createElement('div');
+    labelEl.className = 'stat-label';
+    labelEl.textContent = label;
+    el.appendChild(valueEl);
+    el.appendChild(labelEl);
+    return el;
+  }
+
+  function flagCard(flag) {
+    const sev = (flag.severity || 'low').toLowerCase();
+    const el = document.createElement('div');
+    el.className = 'flag-card sev-' + sev;
+
+    const head = document.createElement('div');
+    head.className = 'flag-head';
+    const sevBadge = document.createElement('span');
+    sevBadge.className = 'flag-sev sev-' + sev;
+    sevBadge.textContent = sev;
+    head.appendChild(sevBadge);
+    const cat = document.createElement('span');
+    cat.className = 'flag-cat';
+    cat.textContent = flag.category || '';
+    head.appendChild(cat);
+    if (flag.confidence !== null && flag.confidence !== undefined) {
+      const conf = document.createElement('span');
+      conf.className = 'flag-confidence';
+      conf.textContent = 'confidence ' + Math.round(flag.confidence * 100) + '%';
+      head.appendChild(conf);
+    }
+    el.appendChild(head);
+
+    const quote = document.createElement('blockquote');
+    quote.className = 'flag-quote';
+    quote.textContent = '"' + (flag.clause_excerpt || '') + '"';
+    el.appendChild(quote);
+
+    const explanation = document.createElement('p');
+    explanation.className = 'flag-explanation';
+    explanation.textContent = flag.explanation || '';
+    el.appendChild(explanation);
+
+    if (flag.suggested_language) {
+      const suggestion = document.createElement('div');
+      suggestion.className = 'flag-suggestion';
+      suggestion.innerHTML = '<strong>Suggested language:</strong> ' + escapeHtml(flag.suggested_language);
+      el.appendChild(suggestion);
+    }
+
+    return el;
+  }
+
+  function reportSectionBlock(title, innerHtmlOrNode) {
+    const section = document.createElement('div');
+    section.className = 'report-section';
+    const h4 = document.createElement('h4');
+    h4.textContent = title;
+    section.appendChild(h4);
+    if (typeof innerHtmlOrNode === 'string') {
+      const body = document.createElement('div');
+      body.className = 'md-body';
+      body.innerHTML = innerHtmlOrNode;
+      section.appendChild(body);
+    } else {
+      section.appendChild(innerHtmlOrNode);
+    }
+    return section;
+  }
+
+  function renderReviewPanel(review, narrativeMd) {
+    const sections = splitSections(narrativeMd);
+    const wrap = document.createElement('div');
+    wrap.className = 'msg assistant review-panel';
+
+    const roleLabel = document.createElement('div');
+    roleLabel.className = 'role';
+    roleLabel.textContent = 'Assistant';
+    wrap.appendChild(roleLabel);
+
+    const card = document.createElement('div');
+    card.className = 'report-card';
+
+    if (sections['Overview']) {
+      card.appendChild(reportSectionBlock('Overview', renderMarkdown(sections['Overview'])));
+    }
+
+    const fin = review.financial_sim || {};
+    const finBody = document.createElement('div');
+    const grid = document.createElement('div');
+    grid.className = 'stat-grid';
+    grid.appendChild(statTile('Total Cost Over Term', formatMoney(fin.base_total_cost)));
+    grid.appendChild(statTile('Worst-Case Late Fees', formatMoney(fin.worst_case_late_fees)));
+    grid.appendChild(statTile('Deposit at Stake', formatMoney(fin.deposit_at_stake)));
+    finBody.appendChild(grid);
+    if (fin.notes && fin.notes.length) {
+      const notes = document.createElement('div');
+      notes.className = 'report-notes';
+      notes.textContent = fin.notes.join(' ');
+      finBody.appendChild(notes);
+    }
+    card.appendChild(reportSectionBlock('Financial Snapshot', finBody));
+
+    const flags = (review.risk_review && review.risk_review.flags) || [];
+    const flagsBody = document.createElement('div');
+    if (!flags.length) {
+      const p = document.createElement('p');
+      p.className = 'muted-text';
+      p.textContent = 'No risky clauses were flagged in this document.';
+      flagsBody.appendChild(p);
+    } else {
+      flags.forEach((flag) => flagsBody.appendChild(flagCard(flag)));
+    }
+    card.appendChild(reportSectionBlock('Risk Flags', flagsBody));
+
+    const questionsKey = 'Questions Worth Asking Before You Sign';
+    if (sections[questionsKey]) {
+      card.appendChild(reportSectionBlock(questionsKey, renderMarkdown(sections[questionsKey])));
+    }
+
+    wrap.appendChild(card);
+    messagesEl.appendChild(wrap);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  async function downloadPdf() {
+    if (!sessionId) return;
+    downloadPdfBtn.disabled = true;
+    try {
+      const res = await fetch('/report/pdf?session_id=' + encodeURIComponent(sessionId));
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail || `Request failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'risk_report.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      addMessage('assistant', 'Could not download the PDF: ' + err.message, { error: true });
+    } finally {
+      downloadPdfBtn.disabled = false;
+    }
   }
 
   function addMessage(role, text, opts) {
@@ -554,7 +826,14 @@
       const data = await res.json();
       setSession(data.session_id);
       hideTyping();
-      addMessage('assistant', data.message);
+      if (data.review) {
+        markHasReview();
+      }
+      if (data.review && /^##\s+Overview/m.test(data.message || '')) {
+        renderReviewPanel(data.review, data.message);
+      } else {
+        addMessage('assistant', data.message);
+      }
     } catch (err) {
       hideTyping();
       addMessage('assistant', 'Something went wrong: ' + err.message, { error: true });
@@ -636,10 +915,13 @@
   resetBtn.addEventListener('click', () => {
     localStorage.removeItem('cra_session_id');
     localStorage.removeItem('cra_loaded_filename');
+    localStorage.removeItem('cra_has_review');
     sessionId = null;
     loadedFilename = null;
+    hasReview = false;
     renderSessionId();
     renderLoadedDoc();
+    renderReportSectionVisibility();
     messagesEl.innerHTML = '';
     addMessage('assistant', 'Started a new session. Load a contract or ask a question.');
   });
@@ -647,6 +929,7 @@
   navTryBtn.addEventListener('click', scrollToApp);
   heroUploadBtn.addEventListener('click', () => { scrollToApp(); fileInput.focus(); });
   heroSampleBtn.addEventListener('click', () => { scrollToApp(); loadSample(); });
+  downloadPdfBtn.addEventListener('click', downloadPdf);
 
   // Scroll-reveal for the "why" cards.
   const revealObserver = new IntersectionObserver((entries) => {

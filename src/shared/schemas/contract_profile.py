@@ -15,6 +15,28 @@ class KeyDate(BaseModel):
     date: str = Field(description="ISO date string if known, else best-effort text")
 
 
+class FinancialTerms(BaseModel):
+    """Structured numeric terms, extracted only when clearly stated in the
+    text. Left null rather than guessed — downstream cost simulation treats
+    a null as 'can't compute this', never as zero."""
+
+    monthly_rent: float | None = None
+    security_deposit: float | None = None
+    term_months: int | None = None
+    late_fee_flat: float | None = Field(
+        default=None, description="One-time flat late fee, if any"
+    )
+    late_fee_daily: float | None = Field(
+        default=None, description="Additional per-day late fee, if any"
+    )
+    late_fee_daily_cap: int | None = Field(
+        default=None, description="Max number of days the daily late fee applies, if stated"
+    )
+    renewal_increase_pct: float | None = Field(
+        default=None, description="Rent increase percentage allowed on renewal, if stated"
+    )
+
+
 class ContractProfile(BaseModel):
     """Structured facts extracted from a contract/lease document."""
 
@@ -38,6 +60,7 @@ class ContractProfile(BaseModel):
     notes: str | None = Field(
         default=None, description="Anything else the extractor flagged as notable"
     )
+    financial_terms: FinancialTerms = Field(default_factory=FinancialTerms)
 
 
 class RiskFlag(BaseModel):
@@ -50,6 +73,12 @@ class RiskFlag(BaseModel):
     clause_bank_id: str | None = Field(
         default=None, description="Matched entry id from clause_bank.json, if any"
     )
+    confidence: float | None = Field(
+        default=None, description="0.0-1.0, how clearly the excerpt matches the pattern"
+    )
+    suggested_language: str | None = Field(
+        default=None, description="Concrete counter-clause language the reader could propose"
+    )
 
 
 class RiskReview(BaseModel):
@@ -58,3 +87,19 @@ class RiskReview(BaseModel):
     flags: list[RiskFlag] = Field(default_factory=list)
     overall_risk_level: str = Field(default="unknown", description="low | medium | high")
     summary_note: str | None = None
+
+
+class FinancialSimulation(BaseModel):
+    """Deterministic cost projection computed from FinancialTerms — no LLM
+    involved, so the numbers are exactly what the arithmetic says."""
+
+    base_total_cost: float | None = Field(
+        default=None, description="monthly_rent * term_months, if both are known"
+    )
+    worst_case_late_fees: float | None = Field(
+        default=None, description="Stress-scenario total late fees over the term"
+    )
+    deposit_at_stake: float | None = None
+    notes: list[str] = Field(
+        default_factory=list, description="Caveats for any figure that couldn't be computed"
+    )

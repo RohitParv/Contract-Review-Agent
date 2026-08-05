@@ -1,8 +1,11 @@
 # Contract & Lease Review Assistant
 
 A personal AI agent that reviews contracts and leases: extracts key terms,
-flags risky clauses against a known-pattern bank, answers questions about a
-loaded document, and generates a plain-English summary report.
+flags risky clauses against a known-pattern bank (each with a confidence
+score and suggested counter-clause language), runs a deterministic financial
+cost simulation, answers questions about a loaded document, and generates a
+plain-English summary report — viewable in the web UI or downloadable as a
+PDF.
 
 Built as a scaled-down version of the **router → orchestrator → subagents/tools**
 architecture from a production financial-planning agent — same pattern, much
@@ -31,6 +34,11 @@ User message → Router (classify intent) → Orchestrator
   conversation state.
 - **`src/tools/contract_extract.py`** — reads a `.pdf` or `.txt` contract
   into plain text (PyMuPDF for PDFs).
+- **`src/tools/financial_simulation.py`** — deterministic, no-LLM cost
+  projection (total cost over term, worst-case late fees, deposit at stake)
+  computed from the numeric `financial_terms` the extractor pulls out.
+- **`src/tools/report_pdf.py`** — renders the same structured review data as
+  a styled PDF via `reportlab`, served from `GET /report/pdf?session_id=...`.
 - **`src/clause_bank.json`** — 12 common risky lease/contract clause
   patterns (auto-renewal, mandatory arbitration, one-sided indemnification,
   etc.) that the risk-matching agent checks the document against.
@@ -89,7 +97,9 @@ python main.py
 
 Then open **http://127.0.0.1:8000** in a browser for a small chat UI —
 upload a `.pdf`/`.txt` contract (or click "Try the sample lease"), then ask
-questions or click "Review this contract" for the full risk report.
+questions or click "Review this contract" for the full risk report: a
+financial snapshot, per-clause risk cards (severity, confidence, quoted
+excerpt, suggested counter-language), and a "Download PDF Report" button.
 
 Or drive the API directly:
 
@@ -107,7 +117,7 @@ optional `session_id` to attach it to an existing conversation).
 
 ## Testing
 
-39 tests, all offline (mocked/scripted LLM responses — no API key or network
+47 tests, all offline (mocked/scripted LLM responses — no API key or network
 needed to run them):
 
 ```bash
@@ -145,25 +155,29 @@ contract-review-agent/
 │   │   └── summary.py          # ContractProfile + RiskReview -> Markdown report
 │   ├── subagents/               # route handlers (qna, review)
 │   ├── tools/
-│   │   └── contract_extract.py # PDF/text file -> raw text
+│   │   ├── contract_extract.py     # PDF/text file -> raw text
+│   │   ├── financial_simulation.py # ContractProfile -> FinancialSimulation (pure Python)
+│   │   └── report_pdf.py           # structured review data -> PDF bytes (reportlab)
 │   ├── shared/
 │   │   ├── llm/                # client interface, providers, factory
 │   │   ├── memory/              # in-memory conversation store
 │   │   ├── prompts/loader.py
-│   │   └── schemas/             # ContractProfile, RiskFlag, RiskReview
+│   │   └── schemas/             # ContractProfile, RiskFlag, RiskReview, FinancialSimulation
 │   └── prompts/                # *.md system prompts
 ├── samples/sample_lease.txt    # synthetic test lease (packed with flaggable clauses)
 ├── local/run_local.py          # CLI smoke test / chat loop
-└── tests/                      # 39 pytest tests (mocked LLM)
+└── tests/                      # 47 pytest tests (mocked LLM)
 ```
 
 ## Next Steps (Ideas, Not Done Yet)
 
 - **Persistent memory**: swap `InMemoryConversationStore` for SQLite so
-  conversations survive a restart.
-- **PDF report export**: original architecture generated PDF deliverables
-  (`reportlab`) — add a `generate_report_pdf()` step after the summary agent.
-  the same way.
+  conversations survive a restart (this would also fix PDF/session data
+  being lost on server restart).
+- **Jurisdiction-aware flagging**: deliberately deferred — doing this
+  honestly needs either curated per-state legal rules or hedged LLM guesses,
+  either of which sits uneasily next to the app's explicit "not legal
+  advice" stance. Worth its own focused pass rather than a quick add.
 - **LangGraph tool-calling pipeline**: if you want the agent to autonomously
   decide when to extract/re-extract/re-flag mid-conversation instead of a
   fixed pipeline, port in LangGraph the way the original project used it for

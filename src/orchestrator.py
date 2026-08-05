@@ -53,6 +53,20 @@ class Orchestrator:
         of a server-side path)."""
         self._store.set_contract(session_id, text)
 
+    def get_review_snapshot(self, session_id: str) -> dict | None:
+        """Structured profile/risk/financial data for a session, if a review
+        has run — lets the API layer enrich its response without changing
+        what .run() returns."""
+        profile = self._store.get_profile(session_id)
+        if profile is None:
+            return None
+        return {
+            "profile": profile,
+            "risk_review": self._store.get_risk_review(session_id),
+            "financial_sim": self._store.get_financial_sim(session_id),
+            "narrative_md": self._store.get_report_markdown(session_id),
+        }
+
     def run(
         self,
         query: str,
