@@ -27,7 +27,7 @@ class GeminiClient:
                 "https://aistudio.google.com/apikey"
             )
         genai.configure(api_key=api_key)
-        self._model_name = model or os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+        self._model_name = model or os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
         self._genai = genai
 
     def complete(self, system: str, user: str) -> str:
